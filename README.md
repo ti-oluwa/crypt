@@ -1,4 +1,4 @@
-## crypt
+## dcrypt
 
 Combines RSA and Fernet encryption to encrypt and decrypt text and Python objects.
 
@@ -7,5 +7,5 @@ Combines RSA and Fernet encryption to encrypt and decrypt text and Python object
 Install with pip:
 
 ```bash
-pip install crypt
+pip install dcrypt
 ```

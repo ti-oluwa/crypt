@@ -1,6 +1,10 @@
 
-class KeyVerificationError(Exception):
-    """Fernet key is not verified. Might have been tampered with."""
+class InvalidCryptKey(Exception):
+    pass
+
+
+class SignatureError(Exception):
+    pass
 
 
 class EncryptionError(Exception):
