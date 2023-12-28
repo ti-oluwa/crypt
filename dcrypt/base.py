@@ -30,7 +30,7 @@ class TCrypt:
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, self.__class__):
             return False
-        return self.__dict__ == o.__dict__
+        return self.key == o.key
 
 
     def encrypt(self, string: str, encoding: str = 'utf-8') -> str:

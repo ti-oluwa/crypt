@@ -2,25 +2,20 @@ import pickle
 from typing import Any, Dict, TypeVar, List
 import base64
 
-from .tcrypt import TCrypt
+from .base import TCrypt
 from .exceptions import EncryptionError, DecryptionError
 
-_SupportsCrypt = TypeVar("_SupportsCrypt", str, int, float, bool, bytes, list, tuple, set, dict, None)
+
+SupportsCrypt = TypeVar("SupportsCrypt", str, int, float, bool, bytes, list, tuple, set, dict, None)
 
 
 
 class Crypt(TCrypt):
     """
     Encrypts and decrypts text and Python objects using Fernet + RSA Encryption
-
-    :attr rsa_key_strength: rsa encryption key strength. Default to 1.
-    :attr sign_and_verify_key: whether to sign and verify the fernet key on encryption and decryption. Default to True.
-
-    NOTE: The higher the encryption key strength, the longer it takes to encrypt and decrypt but the more secure it is.
-    There a three levels. Empty strings and None are not encrypted.
     """
 
-    def encrypt(self, obj: _SupportsCrypt) -> _SupportsCrypt | Any:
+    def encrypt(self, obj: SupportsCrypt) -> SupportsCrypt | Any:
         """
         Encrypts an object.
 
@@ -37,7 +32,7 @@ class Crypt(TCrypt):
         return obj
 
 
-    def decrypt(self, enc: _SupportsCrypt) -> _SupportsCrypt | Any:
+    def decrypt(self, enc: SupportsCrypt) -> SupportsCrypt | Any:
         """
         Decrypts encrypted object.
 

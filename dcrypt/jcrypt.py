@@ -1,33 +1,36 @@
-from typing import Any
 import warnings
 import json
-from typing import TypeVar, Union, List, Dict, Any
+from typing import TypeVar, List, Dict, Any
 
+from .key import CryptKey
 from .crypt import Crypt
 
 
-_JSONParseable = TypeVar("_JSONParseable", Union[List[Any], Dict[str, Any], str, int, float, bool, None])
+JSONParseable = TypeVar("JSONParseable", List[Any], Dict[str, Any], str, int, float, bool, None)
 
 
 class JCrypt(Crypt):
     """
     Encrypts and decrypts JSON parsable objects.
-
-    :attr rsa_key_strength: rsa encryption key strength. Default to 1
-    :attr sign_and_verify_key: whether to sign and verify the fernet key on encryption and decryption. Default to True.
-    :attr suppress_warnings: whether to suppress all warnings during encryption and decryption.
-
-    NOTE: The higher the encryption key strength, the longer it takes to encrypt and decrypt but the more secure it is.
-    There a three levels
     """
-    suppress_warnings = False
+    def __init__(self, key: CryptKey(), suppress_warnings: bool = False):
+        """
+        Make a `JCrypt` object
 
-    def encrypt(self, obj: _JSONParseable) -> _JSONParseable:
+        :param key: encryption key. Pass this if you already have an encryption key
+        and just need to reconstruct the JCrypt object.
+        :param suppress_warnings: suppress warnings. Default to False
+        """
+        super().__init__(key=key)
+        self.suppress_warnings = suppress_warnings
+
+
+    def encrypt(self, obj: JSONParseable) -> JSONParseable:
         encrypted_obj = super().encrypt(obj)
         return json.loads(json.dumps(encrypted_obj))
   
     
-    def decrypt(self, object_: _JSONParseable) -> _JSONParseable:
+    def decrypt(self, object_: JSONParseable) -> JSONParseable:
         decrypted_obj = super().decrypt(object_)
         return json.loads(json.dumps(decrypted_obj))
 
