@@ -2,7 +2,7 @@ import warnings
 import json
 from typing import TypeVar, List, Dict, Any
 
-from .key import CryptKey
+from .cryptkey import CryptKey
 from .crypt import Crypt
 
 
@@ -13,7 +13,7 @@ class JCrypt(Crypt):
     """
     Encrypts and decrypts JSON parsable objects.
     """
-    def __init__(self, key: CryptKey(), suppress_warnings: bool = False):
+    def __init__(self, key: CryptKey, suppress_warnings: bool = False):
         """
         Make a `JCrypt` object
 

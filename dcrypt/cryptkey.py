@@ -1,103 +1,79 @@
+import inspect
 import rsa
-import base64
 from cryptography.fernet import Fernet
-from typing import NamedTuple
+from typing import Callable, List
 
 from .exceptions import SignatureError
+from .signature import Signature, SUPPORTED_HASH_ALGORITHMS, SIGNATURE_STRENGTH_LEVELS
 
 
-SIGNATURE_STRENGTH_LEVELS = [
-    (1, 1024),
-    (2, 2048),
-    (3, 4096)
-]
 
-SUPPORTED_HASH_ALGORITHMS = ('SHA-256', 'SHA-384', 'SHA-512')
-
-
-class CommonSignature(NamedTuple):
+class _AllowSetOnce:
     """
-    `NamedTuple` containing an encrypted Fernet key, the rsa public key 
-    and rsa private key used to encrypt the Fernet key, all as strings.
+    Descriptor that allows an attribute to be set only once on an instance.
     """
-    enc_f_key: str
-    pub_key: str
-    priv_key: str
 
-
-class Signature(NamedTuple):
-    """
-    `NamedTuple` containing an encrypted Fernet key, the rsa public key and 
-    rsa private key used to encrypt the Fernet key.
-    """
-    enc_f_key: bytes
-    pub_key: rsa.PublicKey
-    priv_key: rsa.PrivateKey
-
-    @staticmethod
-    def _rsa_key_to_str(rsa_key: rsa.PublicKey | rsa.PrivateKey, encoding: str = 'utf-8'):
-        rsa_key_str = base64.urlsafe_b64encode(rsa_key.save_pkcs1(format="PEM")).decode(encoding=encoding)
-        return rsa_key_str
-
-
-    @staticmethod
-    def _rsa_key_from_str(
-            rsa_key_str: str, 
-            type_: str = "public", 
-            encoding: str = 'utf-8'
-        ):
-        key_bytes = base64.urlsafe_b64decode(rsa_key_str.encode(encoding=encoding))
-        if type_ == 'private':
-            return rsa.PrivateKey.load_pkcs1(key_bytes, format="PEM")
-        elif type_ == 'public':
-            return rsa.PublicKey.load_pkcs1(key_bytes, format="PEM")
-        raise ValueError('type_ must be either "private" or "public"')
-
-
-    @staticmethod
-    def _enc_f_key_to_str(enc_f_key_bytes: bytes, encoding: str = 'utf-8'):
-        return base64.urlsafe_b64encode(enc_f_key_bytes).decode(encoding=encoding)
-
-
-    @staticmethod
-    def _enc_f_key_from_str(enc_f_key_str: str, encoding: str = 'utf-8'):
-        return base64.urlsafe_b64decode(enc_f_key_str.encode(encoding=encoding))
-
-
-    def to_common(self, encoding: str = "utf-8"):
+    def __init__(self, name: str, attr_type: type[object] = None, validators: List[Callable] = None) -> None:
         """
-        Converts the signature to a common signature.
+        Initialize the descriptor
 
-        :param encoding: encoding to be used when converting values to strings
-        :return: `CommonSignature` object
+        :param name: name of the attribute
+        :param validators: list of validators to be used to validate the attribute's value
         """
-        enc_f_key_str = self._enc_f_key_to_str(self.enc_f_key, encoding=encoding)
-        pub_key_str = self._rsa_key_to_str(self.pub_key, encoding=encoding)
-        priv_key_str = self._rsa_key_to_str(self.priv_key, encoding=encoding)
-        return CommonSignature(enc_f_key_str, pub_key_str, priv_key_str)
-    
+        if not isinstance(name, str):
+            raise TypeError('name must be a string')
+        if attr_type and not inspect.isclass(attr_type):
+            raise TypeError('attr_type must be a class')
+        if validators and not isinstance(validators, list):
+            raise TypeError('validators must be a list')
+        
+        self.name = name
+        self.attr_type = attr_type or object
+        self.validators = validators or []
+        for validator in self.validators:
+            if not callable(validator):
+                raise TypeError('validators must be a list of callables')
+        return None
+            
 
-    @classmethod
-    def from_common(cls, common_signature: CommonSignature, encoding: str = "utf-8"):
+    def __get__(self, instance: object, owner: object):
         """
-        Construct a signature from its common signature
+        Get the property value
 
-        :param common_signature: `CommonSignature` object
-        :param encoding: encoding used to encode the key strings
-        :return: created `Signature` object
+        :param instance: instance of the class
+        :param owner: class that owns the instance
+        :return: value of the attribute
         """
-        enc_f_key = cls._enc_f_key_from_str(common_signature.enc_f_key, encoding=encoding)
-        pub_key = cls._rsa_key_from_str(common_signature.pub_key, 'public', encoding=encoding)
-        priv_key = cls._rsa_key_from_str(common_signature.priv_key, 'private', encoding=encoding)
-        return cls(enc_f_key, pub_key, priv_key)
+        if instance is None:
+            return self
+        value: self.attr_type = instance.__dict__[self.name]
+        return value
+
+
+    def __set__(self, instance: object, value: object) -> None:
+        """
+        Set the attribute value on the instance
+
+        :param instance: instance of the class
+        :param value: value to be set
+        """
+        if self.name in instance.__dict__:
+            raise AttributeError(f'Attribute {self.name} can only be set once')
+        if not isinstance(value, self.attr_type):
+            raise TypeError(f'{self.name} must be of type {self.attr_type}')
+        
+        for validator in self.validators:
+            validator(value)
+        instance.__dict__[self.name] = value
 
 
 
 class CryptKey:
     """Encryption key for `*Crypt` classes"""
-    hash_algorithm = 'SHA-256' # Can be any of 'SHA-256', 'SHA-384', 'SHA-512'
-    sign_and_verify = True
-    __slots__ = ("_signature",)
+
+    hash_algorithm = 'SHA-256' # Can be any of SUPPORTED_HASH_ALGORITHMS
+    sign_and_verify = True # Whether to sign and verify the fernet key
+    signature = _AllowSetOnce(name='signature', attr_type=Signature)
 
     def __init__(
             self, 
@@ -116,22 +92,14 @@ class CryptKey:
         This is only used when `signature` is not passed to the constructor, that is, you want to create
         an entirely new crypt key.
         """
-        self._signature = signature or self.make_signature(signature_strength=signature_strength)
+        self.signature = signature or self.make_signature(signature_strength=signature_strength)
 
 
     def __eq__(self, o: object):
         if not isinstance(o, self.__class__):
             return False
         return self.signature == o.signature
-
-    @property
-    def signature(self) -> Signature:
-        """
-        Cryptkey's signature. 
-        Contains an encrypted fernet key, 
-        an rsa public key and an rsa private key
-        """
-        return self._signature
+    
 
     @property
     def master(self) -> bytes:
@@ -156,13 +124,13 @@ class CryptKey:
 
 
     @classmethod
-    def _sign_f_key(cls, fernet_key: bytes, rsa_priv_key: rsa.PrivateKey):
+    def _sign_f_key(cls, fernet_key: bytes, rsa_priv_key: rsa.PrivateKey) -> bytes:
         """
         Signs the fernet key using the rsa private key
 
         :param fernet_key: fernet key to be signed
         :param rsa_priv_key: rsa private key
-        :return: signature
+        :return: ferent key signature
         """
         if not cls.hash_algorithm in SUPPORTED_HASH_ALGORITHMS:
             raise ValueError(f'hash_algorithm must be one of {SUPPORTED_HASH_ALGORITHMS}')
@@ -173,19 +141,19 @@ class CryptKey:
     def _verify_f_key(
             cls, 
             fernet_key: bytes, 
-            signature: bytes, 
+            key_signature: bytes, 
             rsa_pub_key: rsa.PublicKey
         ) -> bool:
         """
         Verifies a decrypted fernet key using the public key
 
         :param fernet_key: fernet key to be verified
-        :param signature: signature to be verified
+        :param key_signature: signature of the fernet key
         :param rsa_pub_key: rsa public key
         """
         if not cls.hash_algorithm in SUPPORTED_HASH_ALGORITHMS:
             raise ValueError(f'hash_algorithm must be one of {SUPPORTED_HASH_ALGORITHMS}')
-        return rsa.verify(fernet_key, signature, rsa_pub_key) == cls.hash_algorithm
+        return rsa.verify(fernet_key, key_signature, rsa_pub_key) == cls.hash_algorithm
 
 
     @classmethod
@@ -197,8 +165,8 @@ class CryptKey:
         ):
         enc_f_key = rsa.encrypt(f_key, rsa_pub_key)
         if cls.sign_and_verify and rsa_priv_key:
-            signature = cls._sign_f_key(f_key, rsa_priv_key)
-            enc_f_key = br'\u0000'.join([enc_f_key, signature])
+            key_signature = cls._sign_f_key(f_key, rsa_priv_key)
+            enc_f_key = br'\u0000'.join([enc_f_key, key_signature])
         return enc_f_key
 
 

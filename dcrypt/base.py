@@ -1,7 +1,20 @@
 from cryptography.fernet import Fernet
 
 from .exceptions import InvalidCryptKey
-from .key import CryptKey
+from .cryptkey import CryptKey, _AllowSetOnce
+
+
+def validate_cryptkey(key: CryptKey) -> None:
+    """
+    Checks if a key is valid
+
+    :param key: key to be checked
+    :raises InvalidCryptKey: if the key is invalid
+    """
+    if not isinstance(key, CryptKey):
+        raise TypeError('key must be of type CryptKey')
+    if not key.is_valid:
+        raise InvalidCryptKey('Crypt key provided is not valid. Its signature may have been tampered with.')
 
 
 
@@ -9,21 +22,14 @@ class TCrypt:
     """
     Encrypts and decrypts text using Fernet + RSA Encryption
     """
-    __slots__ = ("key",)
+    key = _AllowSetOnce(name='key', attr_type=CryptKey, validators=[validate_cryptkey])
 
     def __init__(self, key: CryptKey) -> None:
         """
         Initializes the Crypt object
 
-        :param enc_fernet_key: encrypted fernet key string
-        :param public_key: public key
-        :param private_key: private key
-        :param hash_algorithm: hash algorithm to use for signing and verifying. Supported algorithms are: 'SHA-1', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'.
+        :param key: encryption key.
         """
-        if not isinstance(key, CryptKey):
-            raise TypeError('key must be of type CryptKey')
-        if not key.is_valid:
-            raise InvalidCryptKey('Crypt key provided is not valid. This probably due to a tampered signature.')
         self.key = key
 
 
