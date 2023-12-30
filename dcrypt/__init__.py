@@ -1,5 +1,6 @@
 
 
 from .cryptkey import CryptKey
-from .crypt import Crypt
-from .jcrypt import JCrypt
+from .object import Crypt
+from .json import JCrypt
+from .signature import Signature

@@ -1,7 +1,12 @@
-from cryptography.fernet import Fernet
+from abc import ABC, abstractmethod
+from typing import TypeVar
 
 from .exceptions import InvalidCryptKey
 from .cryptkey import CryptKey, _AllowSetOnce
+
+
+Encryptable = TypeVar("Encryptable", str, int, float, bool, bytes, list, tuple, set, dict, None)
+Decryptable = TypeVar("Decryptable", str, list, tuple, set, dict, None)
 
 
 def validate_cryptkey(key: CryptKey) -> None:
@@ -17,12 +22,10 @@ def validate_cryptkey(key: CryptKey) -> None:
         raise InvalidCryptKey('Crypt key provided is not valid. Its signature may have been tampered with.')
 
 
+class Crypt(ABC):
+    """Abstract base class for `*Crypt` type"""
 
-class TCrypt:
-    """
-    Encrypts and decrypts text using Fernet + RSA Encryption
-    """
-    key = _AllowSetOnce(name='key', attr_type=CryptKey, validators=[validate_cryptkey])
+    key = _AllowSetOnce(CryptKey, validators=[validate_cryptkey])
 
     def __init__(self, key: CryptKey) -> None:
         """
@@ -37,40 +40,12 @@ class TCrypt:
         if not isinstance(o, self.__class__):
             return False
         return self.key == o.key
+    
 
+    @abstractmethod
+    def encrypt(self, obj: Encryptable, *args, **kwargs) -> Decryptable:
+        """Encrypts the object passed"""
 
-    def encrypt(self, string: str, encoding: str = 'utf-8') -> str:
-        """
-        Encrypts a string using the fernet key
-
-        :param string: string to be encrypted
-        :param encoding: encoding to be used to decode and 
-        encode the string on encryption. Default to 'utf-8'
-        :return: encrypted string
-        """
-        if not isinstance(string, str):
-            raise TypeError('string must be of type str')
-
-        string_bytes = string.encode(encoding=encoding)
-        cipher_bytes = Fernet(self.key.master).encrypt(string_bytes)
-        cipher_string = cipher_bytes.decode(encoding=encoding)
-        return cipher_string
-
-
-    def decrypt(self, cipher_string: str, encoding: str = 'utf-8') -> str:
-        """
-        Decrypts a string using the fernet key
-
-        :param cipher_string: string to be decrypted
-        :param encoding: encoding to be used to decode and 
-        encode the string on decryption. Default to 'utf-8'
-        :return: decrypted string
-        """
-        if not isinstance(cipher_string, str):
-            raise TypeError('cipher_string must be of type str')
-
-        cipher_bytes = cipher_string.encode(encoding=encoding)
-        string_bytes = Fernet(self.key.master).decrypt(cipher_bytes)
-        string = string_bytes.decode(encoding=encoding)
-        return string
-
+    @abstractmethod
+    def decrypt(self, encrypted_obj: Decryptable, *args, **kwargs) -> Encryptable:
+        """Decrypts the encrypted object passed"""

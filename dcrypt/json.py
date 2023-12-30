@@ -3,15 +3,16 @@ import json
 from typing import TypeVar, List, Dict, Any
 
 from .cryptkey import CryptKey
-from .crypt import Crypt
+from .base import Encryptable
+from .object import ObjectCrypt
 
 
 JSONParseable = TypeVar("JSONParseable", List[Any], Dict[str, Any], str, int, float, bool, None)
 
 
-class JCrypt(Crypt):
+class JSONCrypt(ObjectCrypt):
     """
-    Encrypts and decrypts JSON parsable objects.
+    Encrypts and decrypts objects into JSON parsable objects.
     """
     def __init__(self, key: CryptKey, suppress_warnings: bool = False):
         """
@@ -25,13 +26,13 @@ class JCrypt(Crypt):
         self.suppress_warnings = suppress_warnings
 
 
-    def encrypt(self, obj: JSONParseable) -> JSONParseable:
+    def encrypt(self, obj: Encryptable) -> JSONParseable:
         encrypted_obj = super().encrypt(obj)
         return json.loads(json.dumps(encrypted_obj))
   
     
-    def decrypt(self, object_: JSONParseable) -> JSONParseable:
-        decrypted_obj = super().decrypt(object_)
+    def decrypt(self, encrypted_obj: JSONParseable) -> Encryptable:
+        decrypted_obj = super().decrypt(encrypted_obj)
         return json.loads(json.dumps(decrypted_obj))
 
 

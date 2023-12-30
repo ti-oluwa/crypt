@@ -1,16 +1,59 @@
 import rsa
 import base64
 from typing import NamedTuple, Self
-
+import simple_file_handler as sfh
 
 
 SIGNATURE_STRENGTH_LEVELS = [
     (1, 1024),
     (2, 2048),
-    (3, 4096)
+    (3, 3072)
 ]
 
 SUPPORTED_HASH_ALGORITHMS = ('SHA-256', 'SHA-384', 'SHA-512')
+
+
+def _bytes_to_str(b: bytes, encoding: str = 'utf-8') -> str:
+    """
+    Converts given bytes to a string.
+
+    :param b: bytes to be converted
+    :param encoding: encoding to be used when converting the bytes to a string
+    :return: converted string
+    """
+    return base64.urlsafe_b64encode(b).decode(encoding=encoding)
+
+
+def _str_to_bytes(s: str, encoding: str = 'utf-8') -> bytes:
+    """
+    Converts given string to bytes.
+
+    :param s: string to be converted
+    :param encoding: encoding to be used when converting the string to bytes
+    :return: converted bytes
+    """
+    return base64.urlsafe_b64decode(s.encode(encoding=encoding))
+
+
+def _rsa_key_to_str(rsa_key: rsa.PublicKey | rsa.PrivateKey, encoding: str = 'utf-8') -> str:
+    """Converts an rsa key to a string"""
+    rsa_key_str = _bytes_to_str(rsa_key.save_pkcs1(format="PEM"), encoding=encoding)
+    return rsa_key_str
+
+
+def _rsa_key_from_str(
+        rsa_key_str: str, 
+        type_: str = "public", 
+        encoding: str = 'utf-8'
+    ) -> rsa.PublicKey | rsa.PrivateKey:
+    """Converts an rsa key string to an rsa key"""
+    key_bytes = _str_to_bytes(rsa_key_str, encoding=encoding)
+    if type_ == 'private':
+        return rsa.PrivateKey.load_pkcs1(key_bytes, format="PEM")
+    elif type_ == 'public':
+        return rsa.PublicKey.load_pkcs1(key_bytes, format="PEM")
+    raise ValueError('type_ must be either "private" or "public"')
+
 
 
 class CommonSignature(NamedTuple):
@@ -18,9 +61,47 @@ class CommonSignature(NamedTuple):
     `NamedTuple` containing an encrypted Fernet key, the rsa public key 
     and rsa private key used to encrypt the Fernet key, all as strings.
     """
-    enc_f_key: str
+    enc_master_key: str
     pub_key: str
     priv_key: str
+    hash_method: str
+
+    def json(self) -> dict:
+        """Converts the signature to a dictionary"""
+        return {
+            "enc_master": self.enc_master_key,
+            "pub": self.pub_key,
+            "priv": self.priv_key,
+            "hash": self.hash_method
+        }
+    
+
+    def dump(self, path: str) -> None:
+        """
+        Dumps the signature to a JSON file.
+
+        :param path: path to the file
+        """
+        with sfh.FileHandler(path) as hdl:
+            if not hdl.filetype == "json":
+                raise ValueError("Invalid JSON file path.")
+            hdl.write_to_file(self.json())
+
+
+    @classmethod
+    def load(cls, path: str) -> Self:
+        """
+        Loads a signature from a JSON file.
+
+        :param path: path to the file
+        :return: loaded `CommonSignature` object
+        """
+        with sfh.FileHandler(path) as hdl:
+            if not hdl.filetype == "json":
+                raise ValueError("Invalid JSON file path.")
+            d = hdl.read_file()
+            return cls(*d.values())
+    
 
 
 class Signature(NamedTuple):
@@ -28,55 +109,22 @@ class Signature(NamedTuple):
     `NamedTuple` containing an encrypted Fernet key, the rsa public key and 
     rsa private key used to encrypt the Fernet key.
     """
-    enc_f_key: bytes
+    enc_master_key: bytes
     pub_key: rsa.PublicKey
     priv_key: rsa.PrivateKey
+    hash_method: str
 
-    @staticmethod
-    def _rsa_key_to_str(rsa_key: rsa.PublicKey | rsa.PrivateKey, encoding: str = 'utf-8') -> str:
-        """Converts an rsa key to a string"""
-        rsa_key_str = base64.urlsafe_b64encode(rsa_key.save_pkcs1(format="PEM")).decode(encoding=encoding)
-        return rsa_key_str
-
-
-    @staticmethod
-    def _rsa_key_from_str(
-            rsa_key_str: str, 
-            type_: str = "public", 
-            encoding: str = 'utf-8'
-        ) -> rsa.PublicKey | rsa.PrivateKey:
-        """Converts an rsa key string to an rsa key"""
-        key_bytes = base64.urlsafe_b64decode(rsa_key_str.encode(encoding=encoding))
-        if type_ == 'private':
-            return rsa.PrivateKey.load_pkcs1(key_bytes, format="PEM")
-        elif type_ == 'public':
-            return rsa.PublicKey.load_pkcs1(key_bytes, format="PEM")
-        raise ValueError('type_ must be either "private" or "public"')
-
-
-    @staticmethod
-    def _enc_f_key_to_str(enc_f_key_bytes: bytes, encoding: str = 'utf-8') -> str:
-        """Converts an encrypted fernet key to a string"""
-        return base64.urlsafe_b64encode(enc_f_key_bytes).decode(encoding=encoding)
-
-
-    @staticmethod
-    def _enc_f_key_from_str(enc_f_key_str: str, encoding: str = 'utf-8') -> bytes:
-        """Converts an encrypted fernet key string to an encrypted fernet key"""
-        return base64.urlsafe_b64decode(enc_f_key_str.encode(encoding=encoding))
-
-
-    def to_common(self, encoding: str = "utf-8") -> CommonSignature:
+    def common(self, encoding: str = "utf-8") -> CommonSignature:
         """
-        Converts the signature to a common signature.
+        Converts the signature to a string based `CommonSignature` object.
 
         :param encoding: encoding to be used when converting values to strings
         :return: `CommonSignature` object
         """
-        enc_f_key_str = self._enc_f_key_to_str(self.enc_f_key, encoding=encoding)
-        pub_key_str = self._rsa_key_to_str(self.pub_key, encoding=encoding)
-        priv_key_str = self._rsa_key_to_str(self.priv_key, encoding=encoding)
-        return CommonSignature(enc_f_key_str, pub_key_str, priv_key_str)
+        enc_master_key_str = _bytes_to_str(self.enc_master_key, encoding=encoding)
+        pub_key_str = _rsa_key_to_str(self.pub_key, encoding=encoding)
+        priv_key_str = _rsa_key_to_str(self.priv_key, encoding=encoding)
+        return CommonSignature(enc_master_key_str, pub_key_str, priv_key_str, self.hash_method)
     
 
     @classmethod
@@ -88,8 +136,28 @@ class Signature(NamedTuple):
         :param encoding: encoding used to encode the key strings
         :return: created `Signature` object
         """
-        enc_f_key = cls._enc_f_key_from_str(common_signature.enc_f_key, encoding=encoding)
-        pub_key = cls._rsa_key_from_str(common_signature.pub_key, 'public', encoding=encoding)
-        priv_key = cls._rsa_key_from_str(common_signature.priv_key, 'private', encoding=encoding)
-        return cls(enc_f_key, pub_key, priv_key)
+        enc_master_key = _str_to_bytes(common_signature.enc_master_key, encoding=encoding)
+        pub_key = _rsa_key_from_str(common_signature.pub_key, 'public', encoding=encoding)
+        priv_key = _rsa_key_from_str(common_signature.priv_key, 'private', encoding=encoding)
+        return cls(enc_master_key, pub_key, priv_key, common_signature.hash_method)
 
+
+    def dump(self, path: str, encoding: str = "utf-8") -> None:
+        """
+        Dumps the signature to a JSON file.
+
+        :param path: path to the file
+        """
+        self.common(encoding=encoding).dump(path)
+
+
+    @classmethod
+    def load(cls, path: str, encoding: str = "utf-8") -> Self:
+        """
+        Loads a signature from a JSON file.
+
+        :param path: path to the file
+        :param encoding: encoding used to encode the key strings
+        :return: loaded `Signature` object
+        """
+        return cls.from_common(CommonSignature.load(path), encoding=encoding)

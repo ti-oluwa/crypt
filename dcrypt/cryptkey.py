@@ -13,21 +13,18 @@ class _AllowSetOnce:
     Descriptor that allows an attribute to be set only once on an instance.
     """
 
-    def __init__(self, name: str, attr_type: type[object] = None, validators: List[Callable] = None) -> None:
+    def __init__(self, attr_type: type[object] = None, validators: List[Callable] = None) -> None:
         """
         Initialize the descriptor
 
         :param name: name of the attribute
         :param validators: list of validators to be used to validate the attribute's value
         """
-        if not isinstance(name, str):
-            raise TypeError('name must be a string')
         if attr_type and not inspect.isclass(attr_type):
             raise TypeError('attr_type must be a class')
         if validators and not isinstance(validators, list):
             raise TypeError('validators must be a list')
         
-        self.name = name
         self.attr_type = attr_type or object
         self.validators = validators or []
         for validator in self.validators:
@@ -35,6 +32,12 @@ class _AllowSetOnce:
                 raise TypeError('validators must be a list of callables')
         return None
             
+    
+    def __set_name__(self, owner, name: str):
+        if not isinstance(name, str):
+            raise TypeError('name must be a string')
+        self.name = name
+
 
     def __get__(self, instance: object, owner: object):
         """
@@ -70,15 +73,13 @@ class _AllowSetOnce:
 
 class CryptKey:
     """Encryption key for `*Crypt` classes"""
-
-    hash_algorithm = 'SHA-256' # Can be any of SUPPORTED_HASH_ALGORITHMS
-    sign_and_verify = True # Whether to sign and verify the fernet key
-    signature = _AllowSetOnce(name='signature', attr_type=Signature)
+    signature = _AllowSetOnce(Signature)
 
     def __init__(
             self, 
             signature: Signature = None, 
             signature_strength: int = 1,
+            hash_algorithm: str = "SHA-256"
         ):
         """
         Make a `CryptKey` object
@@ -92,10 +93,13 @@ class CryptKey:
         This is only used when `signature` is not passed to the constructor, that is, you want to create
         an entirely new crypt key.
         """
-        self.signature = signature or self.make_signature(signature_strength=signature_strength)
+        self.signature = signature or self.make_signature(
+            signature_strength=signature_strength, 
+            hash_algorithm=hash_algorithm
+        )
 
 
-    def __eq__(self, o: object):
+    def __eq__(self, o: object) -> bool:
         if not isinstance(o, self.__class__):
             return False
         return self.signature == o.signature
@@ -106,10 +110,10 @@ class CryptKey:
         """
         Returns the master key.
 
-        The decrypted fernet key
+        The master key is the fernet key used to encrypt and decrypt data.
         """
-        f, pub, priv = self.signature
-        return self._decrypt_f_key(f, priv, pub)
+        enc_master, pub, priv, hsh_algo = self.signature
+        return self._decrypt_master_key(enc_master, priv, pub, hsh_algo)
 
     @property
     def is_valid(self):
@@ -124,71 +128,83 @@ class CryptKey:
 
 
     @classmethod
-    def _sign_f_key(cls, fernet_key: bytes, rsa_priv_key: rsa.PrivateKey) -> bytes:
+    def _sign_master_key(
+            cls, 
+            master_key: bytes, 
+            priv_key: rsa.PrivateKey,
+            hash_algorithm: str,
+        ) -> bytes:
         """
-        Signs the fernet key using the rsa private key
+        Signs the master key using the rsa private key
 
-        :param fernet_key: fernet key to be signed
-        :param rsa_priv_key: rsa private key
-        :return: ferent key signature
+        :param master_key: fernet key to be signed
+        :param priv_key: rsa private key
+        :return: master key's signature
         """
-        if not cls.hash_algorithm in SUPPORTED_HASH_ALGORITHMS:
+        if hash_algorithm not in SUPPORTED_HASH_ALGORITHMS:
             raise ValueError(f'hash_algorithm must be one of {SUPPORTED_HASH_ALGORITHMS}')
-        return rsa.sign(fernet_key, rsa_priv_key, cls.hash_algorithm)
+        return rsa.sign(master_key, priv_key, hash_algorithm)
 
 
     @classmethod
-    def _verify_f_key(
+    def _verify_master_key(
             cls, 
-            fernet_key: bytes, 
+            master_key: bytes, 
             key_signature: bytes, 
-            rsa_pub_key: rsa.PublicKey
+            pub_key: rsa.PublicKey,
+            hash_algorithm: str
         ) -> bool:
         """
-        Verifies a decrypted fernet key using the public key
+        Verifies a decrypted master key using the public key
 
-        :param fernet_key: fernet key to be verified
-        :param key_signature: signature of the fernet key
-        :param rsa_pub_key: rsa public key
+        :param master_key: fernet key to be verified
+        :param key_signature: signature of the master key
+        :param pub_key: rsa public key
         """
-        if not cls.hash_algorithm in SUPPORTED_HASH_ALGORITHMS:
+        if hash_algorithm not in SUPPORTED_HASH_ALGORITHMS:
             raise ValueError(f'hash_algorithm must be one of {SUPPORTED_HASH_ALGORITHMS}')
-        return rsa.verify(fernet_key, key_signature, rsa_pub_key) == cls.hash_algorithm
+        try:
+            return rsa.verify(master_key, key_signature, pub_key) == hash_algorithm
+        except Exception:
+            return False
 
 
     @classmethod
-    def _encrypt_f_key(
+    def _encrypt_master_key(
             cls, 
-            f_key: bytes, 
-            rsa_pub_key: rsa.PublicKey, 
-            rsa_priv_key: rsa.PrivateKey = None
+            master_key: bytes, 
+            pub_key: rsa.PublicKey, 
+            priv_key: rsa.PrivateKey = None,
+            hash_algorithm: str = None
         ):
-        enc_f_key = rsa.encrypt(f_key, rsa_pub_key)
-        if cls.sign_and_verify and rsa_priv_key:
-            key_signature = cls._sign_f_key(f_key, rsa_priv_key)
-            enc_f_key = br'\u0000'.join([enc_f_key, key_signature])
-        return enc_f_key
+        enc_master_key = rsa.encrypt(master_key, pub_key)
+        if priv_key and hash_algorithm:
+            key_signature = cls._sign_master_key(master_key, priv_key, hash_algorithm)
+            enc_master_key = br'\u0000'.join((enc_master_key, key_signature))
+        return enc_master_key
 
 
     @classmethod
-    def _decrypt_f_key(
+    def _decrypt_master_key(
             cls, 
-            enc_f_key: bytes, 
-            rsa_priv_key: rsa.PrivateKey, 
-            rsa_pub_key: rsa.PublicKey = None
+            enc_master_key: bytes, 
+            priv_key: rsa.PrivateKey, 
+            pub_key: rsa.PublicKey = None,
+            hash_algorithm: str = None
         ):
-        if cls.sign_and_verify:
-            enc_f_key, signature = enc_f_key.split(br'\u0000')
-        dec_f_key = rsa.decrypt(enc_f_key, rsa_priv_key)
-        if cls.sign_and_verify and rsa_pub_key:
-            is_verified = cls._verify_f_key(dec_f_key, signature, rsa_pub_key)
+        if hash_algorithm:
+            enc_master_key, signature = enc_master_key.split(br'\u0000')
+
+        master_key = rsa.decrypt(enc_master_key, priv_key)
+        if hash_algorithm and pub_key:
+            is_verified = cls._verify_master_key(master_key, signature, pub_key, hash_algorithm)
             if not is_verified:
                 raise SignatureError('Key signature cannot be verified. Might have been tampered with.')
-        return dec_f_key
+        return master_key
     
 
     @classmethod
-    def make_signature(cls, signature_strength: int = 1) -> Signature:
+    def make_signature(cls, signature_strength: int = 1, hash_algorithm: str = "SHA-256") -> Signature:
         """
         Generates a new key signature.
         The object generated can be used to make a `CryptKey` object
@@ -197,13 +213,14 @@ class CryptKey:
         """
         if not isinstance(signature_strength, int):
             raise TypeError('signature_strength must be an integer')
-        if not 1 <= signature_strength <= 3:
-            raise ValueError('signature_strength must be between 1 and 3')
+        
+        if not 1 <= signature_strength <= len(SIGNATURE_STRENGTH_LEVELS):
+            raise ValueError(f'signature_strength must be between 1 and {len(SIGNATURE_STRENGTH_LEVELS)}')
         
         strength_lvl_index = signature_strength - 1
-        nbits = SIGNATURE_STRENGTH_LEVELS[strength_lvl_index][1]
-        pub_key, priv_key = rsa.newkeys(nbits)
+        bits = SIGNATURE_STRENGTH_LEVELS[strength_lvl_index][1]
+        pub_key, priv_key = rsa.newkeys(bits)
 
-        f_key = Fernet.generate_key()
-        enc_f_key = cls._encrypt_f_key(f_key, pub_key, priv_key)
-        return Signature(enc_f_key, pub_key, priv_key)
+        master_key = Fernet.generate_key()
+        enc_master_key = cls._encrypt_master_key(master_key, pub_key, priv_key, hash_algorithm)
+        return Signature(enc_master_key, pub_key, priv_key, hash_algorithm)
