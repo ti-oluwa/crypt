@@ -1,6 +1,7 @@
 import pickle
-from typing import Dict, Tuple, List, Set
+from typing import Dict, Tuple, List, Set, Callable
 import base64
+import functools
 
 from .base import Crypt, Encryptable, Decryptable
 from .text import TextCrypt
@@ -12,6 +13,18 @@ class ObjectCrypt(Crypt):
     """
     Encrypts and decrypts text and Python objects.
     """
+    def __call__(self, func: Callable[..., Encryptable]) -> Callable[..., Decryptable]:
+        """Encrypts the return value of the decorated function."""
+        if not callable(func):
+            raise TypeError("func must be callable")
+        
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return self.encrypt(func(*args, **kwargs)) 
+               
+        return wrapper
+    
+
     def encrypt(self, obj: Encryptable) -> Decryptable:
         """
         Encrypts an object.
@@ -105,8 +118,8 @@ class ObjectCrypt(Crypt):
         """
         if not isinstance(int_, int):
             raise TypeError(int_)
-        e_int_ = self.encrypt_str(str(int_))
-        return f":ty-ndbl:\u0000{e_int_}"
+        enc_int = self.encrypt_str(str(int_))
+        return f":ty-ndbl:\u0000{enc_int}"
 
 
     def encrypt_float(self, float_: float) -> str:
@@ -118,8 +131,8 @@ class ObjectCrypt(Crypt):
         """
         if not isinstance(float_, float):
             raise TypeError(float_)
-        e_float_ = self.encrypt_str(str(float_))
-        return f":ty-dbl:\u0000{e_float_}"
+        enc_float = self.encrypt_str(str(float_))
+        return f":ty-dbl:\u0000{enc_float}"
 
 
     def encrypt_bool(self, bool_: bool) -> str:
@@ -131,8 +144,8 @@ class ObjectCrypt(Crypt):
         """
         if not isinstance(bool_, bool):
             raise TypeError(bool_)
-        e_bool_ = self.encrypt_str(str(bool_))
-        return f":ty-bln:\u0000{e_bool_}"
+        enc_bool = self.encrypt_str(str(bool_))
+        return f":ty-bln:\u0000{enc_bool}"
 
 
     def encrypt_bytes(self, bytes_: bytes) -> str:
@@ -206,6 +219,7 @@ class ObjectCrypt(Crypt):
         """
         if not isinstance(list_, list):
             raise TypeError(list_)
+        
         encrypted_list = []
         for item in list_:
             if item is not None and item != "":
@@ -225,6 +239,7 @@ class ObjectCrypt(Crypt):
         """
         if not isinstance(cipher_list, list):
             raise TypeError(cipher_list)
+        
         decrypted_list = []
         for item in cipher_list:
             if item is not None and item != "":
@@ -244,6 +259,7 @@ class ObjectCrypt(Crypt):
         """
         if not isinstance(dict_, dict):
             raise TypeError(dict_)
+        
         encrypted_dict = {}
         for key, value in dict_.items():
             if value is not None and value != "":
@@ -263,6 +279,7 @@ class ObjectCrypt(Crypt):
         """
         if not isinstance(cipher_dict, dict):
             raise TypeError(cipher_dict)
+        
         decrypted_dict = {}
         for key, value in cipher_dict.items():
             if value is not None and value != "":
@@ -281,7 +298,7 @@ class ObjectCrypt(Crypt):
         :return: encrypted Python class object
         """
         dumped_obj = pickle.dumps(object_)
-        encrypted_obj = self.encrypt(dumped_obj)
+        encrypted_obj = self.encrypt_bytes(dumped_obj)
         return f":ty-obj:\u0000{encrypted_obj}"
 
 

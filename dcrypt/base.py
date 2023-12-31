@@ -29,7 +29,7 @@ class Crypt(ABC):
 
     def __init__(self, key: CryptKey) -> None:
         """
-        Initializes the Crypt object
+        Initializes the `*Crypt` object
 
         :param key: encryption key.
         """
@@ -40,7 +40,11 @@ class Crypt(ABC):
         if not isinstance(o, self.__class__):
             return False
         return self.key == o.key
+
     
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(key={self.key})'
+        
 
     @abstractmethod
     def encrypt(self, obj: Encryptable, *args, **kwargs) -> Decryptable:

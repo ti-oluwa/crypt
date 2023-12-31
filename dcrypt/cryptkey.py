@@ -12,7 +12,6 @@ class _AllowSetOnce:
     """
     Descriptor that allows an attribute to be set only once on an instance.
     """
-
     def __init__(self, attr_type: type[object] = None, validators: List[Callable] = None) -> None:
         """
         Initialize the descriptor
@@ -87,6 +86,7 @@ class CryptKey:
         :param signature: key signature. Pass this if you already have a key signature
         and just need to reconstruct the CryptKey object.
         :param signature_strength: key signature strength. Default to 1. 
+        :param hash_algorithm: hash algorithm to use. Default to SHA-256.
         
         You can specify the strength of the key signature. There a three levels. The higher the strength, 
         the longer it takes to generate the key signature but the more secure it is.
@@ -139,6 +139,7 @@ class CryptKey:
 
         :param master_key: fernet key to be signed
         :param priv_key: rsa private key
+        :param hash_algorithm: hash algorithm to use to sign the master key
         :return: master key's signature
         """
         if hash_algorithm not in SUPPORTED_HASH_ALGORITHMS:
@@ -159,6 +160,7 @@ class CryptKey:
 
         :param master_key: fernet key to be verified
         :param key_signature: signature of the master key
+        :param hash_algorithm: hash algorithm used to sign the master key
         :param pub_key: rsa public key
         """
         if hash_algorithm not in SUPPORTED_HASH_ALGORITHMS:
@@ -209,7 +211,9 @@ class CryptKey:
         Generates a new key signature.
         The object generated can be used to make a `CryptKey` object
 
-        :returns: a `Signature` object
+        :param signature_strength: key signature strength. Default to 1.
+        :param hash_algorithm: hash algorithm to use. Default to SHA-256.
+        :return: a `Signature` object
         """
         if not isinstance(signature_strength, int):
             raise TypeError('signature_strength must be an integer')

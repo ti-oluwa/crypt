@@ -1,6 +1,7 @@
 from cryptography.fernet import Fernet
 
 from .base import Crypt
+from .exceptions import EncryptionError, DecryptionError
 
 
 class TextCrypt(Crypt):
@@ -20,7 +21,10 @@ class TextCrypt(Crypt):
             raise TypeError('string must be of type str')
 
         string_bytes = string.encode(encoding=encoding)
-        cipher_bytes = Fernet(self.key.master).encrypt(string_bytes)
+        try:
+            cipher_bytes = Fernet(self.key.master).encrypt(string_bytes)
+        except Exception as exc:
+            raise EncryptionError(exc) from None
         cipher_string = cipher_bytes.decode(encoding=encoding)
         return cipher_string
 
@@ -38,7 +42,10 @@ class TextCrypt(Crypt):
             raise TypeError('cipher_string must be of type str')
 
         cipher_bytes = cipher_string.encode(encoding=encoding)
-        string_bytes = Fernet(self.key.master).decrypt(cipher_bytes)
+        try:
+            string_bytes = Fernet(self.key.master).decrypt(cipher_bytes)
+        except Exception as exc:
+            raise DecryptionError(exc) from None
         string = string_bytes.decode(encoding=encoding)
         return string
 

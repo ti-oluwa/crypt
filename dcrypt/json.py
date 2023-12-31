@@ -2,7 +2,6 @@ import warnings
 import json
 from typing import TypeVar, List, Dict, Any
 
-from .cryptkey import CryptKey
 from .base import Encryptable
 from .object import ObjectCrypt
 
@@ -14,18 +13,6 @@ class JSONCrypt(ObjectCrypt):
     """
     Encrypts and decrypts objects into JSON parsable objects.
     """
-    def __init__(self, key: CryptKey, suppress_warnings: bool = False):
-        """
-        Make a `JCrypt` object
-
-        :param key: encryption key. Pass this if you already have an encryption key
-        and just need to reconstruct the JCrypt object.
-        :param suppress_warnings: suppress warnings. Default to False
-        """
-        super().__init__(key=key)
-        self.suppress_warnings = suppress_warnings
-
-
     def encrypt(self, obj: Encryptable) -> JSONParseable:
         encrypted_obj = super().encrypt(obj)
         return json.loads(json.dumps(encrypted_obj))
@@ -44,8 +31,6 @@ class JSONCrypt(ObjectCrypt):
         :param tuple_: tuple containing contents to be encrypted
         :return: list containing encrypted content
         """
-        if not self.suppress_warnings:
-            warnings.warn("Tuples are not recommended for JSON", RuntimeWarning)
         if not isinstance(tuple_, tuple):
             raise TypeError(tuple_)
         return self.encrypt_list(list(tuple_))
@@ -58,8 +43,6 @@ class JSONCrypt(ObjectCrypt):
         :param set_: set containing contents to be encrypted
         :return: list containing encrypted content
         """
-        if not self.suppress_warnings:
-            warnings.warn("Sets are not recommended for JSON", RuntimeWarning)
         if not isinstance(set_, set):
             raise TypeError(set_)
         return self.encrypt_list(list(set_))

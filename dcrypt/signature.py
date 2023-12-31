@@ -1,6 +1,6 @@
 import rsa
 import base64
-from typing import NamedTuple, Self
+from typing import NamedTuple, Self, Dict, Any
 import simple_file_handler as sfh
 
 
@@ -66,14 +66,9 @@ class CommonSignature(NamedTuple):
     priv_key: str
     hash_method: str
 
-    def json(self) -> dict:
+    def json(self) -> Dict[str, Any]:
         """Converts the signature to a dictionary"""
-        return {
-            "enc_master": self.enc_master_key,
-            "pub": self.pub_key,
-            "priv": self.priv_key,
-            "hash": self.hash_method
-        }
+        return self._asdict()
     
 
     def dump(self, path: str) -> None:
@@ -81,8 +76,10 @@ class CommonSignature(NamedTuple):
         Dumps the signature to a JSON file.
 
         :param path: path to the file
+        :raises `ValueError`: if the file is not a JSON file
+        :raises `FileExistsError`: if the file already exists
         """
-        with sfh.FileHandler(path) as hdl:
+        with sfh.FileHandler(path, exists_ok=False) as hdl:
             if not hdl.filetype == "json":
                 raise ValueError("Invalid JSON file path.")
             hdl.write_to_file(self.json())
@@ -95,12 +92,14 @@ class CommonSignature(NamedTuple):
 
         :param path: path to the file
         :return: loaded `CommonSignature` object
+        :raises `ValueError`: if the file is not a JSON file
+        :raises `FileNotFoundError`: if the file does not exist
         """
-        with sfh.FileHandler(path) as hdl:
+        with sfh.FileHandler(path, not_found_ok=False) as hdl:
             if not hdl.filetype == "json":
                 raise ValueError("Invalid JSON file path.")
-            d = hdl.read_file()
-            return cls(*d.values())
+            dump = hdl.read_file()
+            return cls(**dump)
     
 
 
@@ -118,7 +117,7 @@ class Signature(NamedTuple):
         """
         Converts the signature to a string based `CommonSignature` object.
 
-        :param encoding: encoding to be used when converting values to strings
+        :param encoding: encoding to be used when converting byte values to strings
         :return: `CommonSignature` object
         """
         enc_master_key_str = _bytes_to_str(self.enc_master_key, encoding=encoding)
@@ -147,6 +146,9 @@ class Signature(NamedTuple):
         Dumps the signature to a JSON file.
 
         :param path: path to the file
+        :param encoding: encoding to be used when converting byte values to strings
+        :raises `ValueError`: if the file is not a JSON file
+        :raises `FileExistsError`: if the file already exists
         """
         self.common(encoding=encoding).dump(path)
 
@@ -159,5 +161,7 @@ class Signature(NamedTuple):
         :param path: path to the file
         :param encoding: encoding used to encode the key strings
         :return: loaded `Signature` object
+        :raises `ValueError`: if the file is not a JSON file
+        :raises `FileNotFoundError`: if the file does not exist
         """
         return cls.from_common(CommonSignature.load(path), encoding=encoding)
