@@ -1,21 +1,31 @@
 import pickle
-from typing import Any, Dict, TypeVar, List
+from typing import Dict, Tuple, List, Set, Callable
 import base64
+import functools
 
-from .base import TCrypt
+from .base import Crypt, Encryptable, Decryptable
+from .text import TextCrypt
 from .exceptions import EncryptionError, DecryptionError
 
 
-SupportsCrypt = TypeVar("SupportsCrypt", str, int, float, bool, bytes, list, tuple, set, dict, None)
 
-
-
-class Crypt(TCrypt):
+class ObjectCrypt(Crypt):
     """
-    Encrypts and decrypts text and Python objects using Fernet + RSA Encryption
+    Encrypts and decrypts text and Python objects.
     """
+    def __call__(self, func: Callable[..., Encryptable]) -> Callable[..., Decryptable]:
+        """Encrypts the return value of the decorated function."""
+        if not callable(func):
+            raise TypeError("func must be callable")
+        
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return self.encrypt(func(*args, **kwargs)) 
+               
+        return wrapper
+    
 
-    def encrypt(self, obj: SupportsCrypt) -> SupportsCrypt | Any:
+    def encrypt(self, obj: Encryptable) -> Decryptable:
         """
         Encrypts an object.
 
@@ -32,19 +42,19 @@ class Crypt(TCrypt):
         return obj
 
 
-    def decrypt(self, enc: SupportsCrypt) -> SupportsCrypt | Any:
+    def decrypt(self, encrypted_obj: Decryptable) -> Encryptable:
         """
         Decrypts encrypted object.
 
-        :param enc: Object to be decrypted
+        :param encrypted_obj: Encrypted object to be decrypted
         :return: decrypted Python object
         """
-        if enc is not None and enc != "":
+        if encrypted_obj is not None and encrypted_obj != "":
             try:
-                return getattr(self, f"decrypt_{type(enc).__name__.lower()}")(enc)
+                return getattr(self, f"decrypt_{type(encrypted_obj).__name__.lower()}")(encrypted_obj)
             except Exception as exc:
                 raise DecryptionError(exc)
-        return enc
+        return encrypted_obj
 
 
     def encrypt_str(self, string: str) -> str:
@@ -56,11 +66,11 @@ class Crypt(TCrypt):
         """
         if not isinstance(string, str):
             raise TypeError("string must be a string")
-        r = super().encrypt(string)
+        r = TextCrypt(self.key).encrypt(string)
         return r
 
 
-    def decrypt_str(self, cipher_string: str):
+    def decrypt_str(self, cipher_string: str) -> Encryptable:
         """
         Decrypts an encrypted string using the encryption key.
 
@@ -69,20 +79,21 @@ class Crypt(TCrypt):
         :return: decrypted object
         """
         if not isinstance(cipher_string, str):
-            raise TypeError("encrypted_string must be a string")
+            raise TypeError("cipher_string must be a string")
 
+        text_crypt = TextCrypt(self.key)
         type_ = None
         split = cipher_string.split('\u0000')
         if cipher_string.startswith(':ty-') and len(split) > 1:
             if len(split) == 2:
                 type_, cipher_str = split
-                r = super().decrypt(cipher_str)
+                r = text_crypt.decrypt(cipher_str)
             else:
                 type_ = split[0]
                 rem_cipher_str = "\u0000".join(split[1:])
                 r = self.decrypt(rem_cipher_str)
         else:
-            r = super().decrypt(cipher_string)
+            r = text_crypt.decrypt(cipher_string)
 
         if not type_:
             return str(r)
@@ -91,14 +102,14 @@ class Crypt(TCrypt):
         elif type_ == ":ty-dbl:":
             return float(r)
         elif type_ == ":ty-bln:":
-            return bool(r)
+            return eval(r)
         elif type_ == ":ty-b:":
             return base64.urlsafe_b64decode(r.encode())
         elif type_ == ":ty-obj:":
             return pickle.loads(r)
 
 
-    def encrypt_int(self, int_: int):
+    def encrypt_int(self, int_: int) -> str:
         """
         Encrypts an integer
 
@@ -107,11 +118,11 @@ class Crypt(TCrypt):
         """
         if not isinstance(int_, int):
             raise TypeError(int_)
-        e_int_ = self.encrypt_str(str(int_))
-        return f":ty-ndbl:\u0000{e_int_}"
+        enc_int = self.encrypt_str(str(int_))
+        return f":ty-ndbl:\u0000{enc_int}"
 
 
-    def encrypt_float(self, float_: float):
+    def encrypt_float(self, float_: float) -> str:
         """
         Encrypts a float
 
@@ -120,11 +131,11 @@ class Crypt(TCrypt):
         """
         if not isinstance(float_, float):
             raise TypeError(float_)
-        e_float_ = self.encrypt_str(str(float_))
-        return f":ty-dbl:\u0000{e_float_}"
+        enc_float = self.encrypt_str(str(float_))
+        return f":ty-dbl:\u0000{enc_float}"
 
 
-    def encrypt_bool(self, bool_: bool):
+    def encrypt_bool(self, bool_: bool) -> str:
         """
         Encrypts a boolean
 
@@ -133,11 +144,11 @@ class Crypt(TCrypt):
         """
         if not isinstance(bool_, bool):
             raise TypeError(bool_)
-        e_bool_ = self.encrypt_str(str(bool_))
-        return f":ty-bln:\u0000{e_bool_}"
+        enc_bool = self.encrypt_str(str(bool_))
+        return f":ty-bln:\u0000{enc_bool}"
 
 
-    def encrypt_bytes(self, bytes_: bytes):
+    def encrypt_bytes(self, bytes_: bytes) -> str:
         """
         Encrypts a bytes content
 
@@ -147,11 +158,11 @@ class Crypt(TCrypt):
         if not isinstance(bytes_, bytes):
             raise TypeError(bytes_)
         bytes_str = base64.urlsafe_b64encode(bytes_).decode()
-        enc_bytes_str = self.encrypt(bytes_str)
+        enc_bytes_str = self.encrypt_str(bytes_str)
         return f":ty-b:\u0000{enc_bytes_str}"
 
 
-    def encrypt_tuple(self, tuple_: tuple):
+    def encrypt_tuple(self, tuple_: tuple) -> Tuple:
         """
         Encrypts a tuple content
 
@@ -163,7 +174,7 @@ class Crypt(TCrypt):
         return tuple(self.encrypt_list(list(tuple_)))
     
 
-    def decrypt_tuple(self, cipher_tuple: tuple):
+    def decrypt_tuple(self, cipher_tuple: tuple) -> Tuple:
         """
         Decrypts a tuple of encrypted content
 
@@ -175,7 +186,7 @@ class Crypt(TCrypt):
         return tuple(self.decrypt_list(list(cipher_tuple)))
 
 
-    def encrypt_set(self, set_: set):
+    def encrypt_set(self, set_: set) -> Set:
         """
         Encrypts a set content
 
@@ -187,7 +198,7 @@ class Crypt(TCrypt):
         return set(self.encrypt_list(list(set_)))
     
 
-    def decrypt_set(self, cipher_set: set):
+    def decrypt_set(self, cipher_set: set) -> Set:
         """
         Decrypts a set of encrypted content
 
@@ -199,7 +210,7 @@ class Crypt(TCrypt):
         return set(self.decrypt_list(list(cipher_set)))
 
 
-    def encrypt_list(self, list_: List):
+    def encrypt_list(self, list_: List) -> List:
         """
         Encrypts a list content
 
@@ -208,6 +219,7 @@ class Crypt(TCrypt):
         """
         if not isinstance(list_, list):
             raise TypeError(list_)
+        
         encrypted_list = []
         for item in list_:
             if item is not None and item != "":
@@ -218,7 +230,7 @@ class Crypt(TCrypt):
         return encrypted_list
 
     
-    def decrypt_list(self, cipher_list: List):
+    def decrypt_list(self, cipher_list: List) -> List:
         """
         Decrypts a list of encrypted content
 
@@ -227,6 +239,7 @@ class Crypt(TCrypt):
         """
         if not isinstance(cipher_list, list):
             raise TypeError(cipher_list)
+        
         decrypted_list = []
         for item in cipher_list:
             if item is not None and item != "":
@@ -237,7 +250,7 @@ class Crypt(TCrypt):
         return decrypted_list
 
     
-    def encrypt_dict(self, dict_: Dict):
+    def encrypt_dict(self, dict_: Dict) -> Dict:
         """
         Encrypts a dict content
 
@@ -246,6 +259,7 @@ class Crypt(TCrypt):
         """
         if not isinstance(dict_, dict):
             raise TypeError(dict_)
+        
         encrypted_dict = {}
         for key, value in dict_.items():
             if value is not None and value != "":
@@ -256,7 +270,7 @@ class Crypt(TCrypt):
         return encrypted_dict
 
     
-    def decrypt_dict(self, cipher_dict: Dict):
+    def decrypt_dict(self, cipher_dict: Dict) -> Dict:
         """
         Decrypts dict with encrypted content
 
@@ -265,6 +279,7 @@ class Crypt(TCrypt):
         """
         if not isinstance(cipher_dict, dict):
             raise TypeError(cipher_dict)
+        
         decrypted_dict = {}
         for key, value in cipher_dict.items():
             if value is not None and value != "":
@@ -275,7 +290,7 @@ class Crypt(TCrypt):
         return decrypted_dict  
     
 
-    def _encrypt_object(self, object_: object):
+    def _encrypt_object(self, object_: object) -> str:
         """
         Encrypts a Python class object
 
@@ -283,7 +298,7 @@ class Crypt(TCrypt):
         :return: encrypted Python class object
         """
         dumped_obj = pickle.dumps(object_)
-        encrypted_obj = self.encrypt(dumped_obj)
+        encrypted_obj = self.encrypt_bytes(dumped_obj)
         return f":ty-obj:\u0000{encrypted_obj}"
 
 
