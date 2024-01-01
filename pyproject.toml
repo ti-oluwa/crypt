@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "dcrypt.__version__"}
+
+[project]
+name = "dcrypt"
+dynamic = ["version"]
+authors = [
+  { name="ti-oluwa", email="tioluwa.dev@gmail.com" },
+]
+maintainers = [
+  { name="ti-oluwa", email="tioluwa.dev@gmail.com" },
+]
+description = "Encrypt text and Python objects using RSA + Fernet encryption."
+keywords = [
+  "encryption",
+  "decryption",
+  "rsa",
+  "fernet",
+  "encrypt",
+  "decrypt",
+  "encryptor",
+  "decryptor",
+  "encrypter",
+  "decrypter",
+  "encrypting",
+  "decrypting",
+  "encryptors",
+  "decryptors",
+  "encrypters",
+  "decrypters",
+  "cryptography",
+]
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Natural Language :: English",
+    "Typing :: Typed",
+]
+dependencies = [
+  "cryptography>=41.0.4",
+  "rsa>=4.7.2",
+  "simple_file_handler>=0.0.1",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ti-oluwa/dcrypt"
+"Bug Tracker" = "https://github.com/ti-oluwa/dcrypt/issues"
+"Repository" = "https://github.com/ti-oluwa/dcrypt"

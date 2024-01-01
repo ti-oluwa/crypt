@@ -98,7 +98,7 @@ class CommonSignature(NamedTuple):
         with sfh.FileHandler(path, not_found_ok=False) as hdl:
             if not hdl.filetype == "json":
                 raise ValueError("Invalid JSON file path.")
-            dump = hdl.read_file()
+            dump: Dict = hdl.read_file()
             return cls(**dump)
     
 

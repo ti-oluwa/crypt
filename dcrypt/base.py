@@ -14,7 +14,7 @@ def validate_cryptkey(key: CryptKey) -> None:
     Checks if a key is valid
 
     :param key: key to be checked
-    :raises InvalidCryptKey: if the key is invalid
+    :raises `InvalidCryptKey`: if the key is invalid
     """
     if not isinstance(key, CryptKey):
         raise TypeError('key must be of type CryptKey')

@@ -93,6 +93,9 @@ class CryptKey:
         This is only used when `signature` is not passed to the constructor, that is, you want to create
         an entirely new crypt key.
         """
+        if signature is not None and not isinstance(signature, Signature):
+            raise TypeError('signature must be a Signature object')
+        
         self.signature = signature or self.make_signature(
             signature_strength=signature_strength, 
             hash_algorithm=hash_algorithm
@@ -112,8 +115,8 @@ class CryptKey:
 
         The master key is the fernet key used to encrypt and decrypt data.
         """
-        enc_master, pub, priv, hsh_algo = self.signature
-        return self._decrypt_master_key(enc_master, priv, pub, hsh_algo)
+        enc_master, pub, priv, hsh_mthd = self.signature
+        return self._decrypt_master_key(enc_master, priv, pub, hsh_mthd)
 
     @property
     def is_valid(self):
@@ -142,8 +145,6 @@ class CryptKey:
         :param hash_algorithm: hash algorithm to use to sign the master key
         :return: master key's signature
         """
-        if hash_algorithm not in SUPPORTED_HASH_ALGORITHMS:
-            raise ValueError(f'hash_algorithm must be one of {SUPPORTED_HASH_ALGORITHMS}')
         return rsa.sign(master_key, priv_key, hash_algorithm)
 
 
@@ -163,8 +164,6 @@ class CryptKey:
         :param hash_algorithm: hash algorithm used to sign the master key
         :param pub_key: rsa public key
         """
-        if hash_algorithm not in SUPPORTED_HASH_ALGORITHMS:
-            raise ValueError(f'hash_algorithm must be one of {SUPPORTED_HASH_ALGORITHMS}')
         try:
             return rsa.verify(master_key, key_signature, pub_key) == hash_algorithm
         except Exception:
@@ -220,6 +219,9 @@ class CryptKey:
         
         if not 1 <= signature_strength <= len(SIGNATURE_STRENGTH_LEVELS):
             raise ValueError(f'signature_strength must be between 1 and {len(SIGNATURE_STRENGTH_LEVELS)}')
+
+        if hash_algorithm not in SUPPORTED_HASH_ALGORITHMS:
+            raise ValueError(f'hash_algorithm must be one of {SUPPORTED_HASH_ALGORITHMS}')
         
         strength_lvl_index = signature_strength - 1
         bits = SIGNATURE_STRENGTH_LEVELS[strength_lvl_index][1]

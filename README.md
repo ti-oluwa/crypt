@@ -38,7 +38,7 @@ decrypted_text = text_crypt.decrypt(encrypted_text)
 print(decrypted_text)
 ```
 
-How about encrypting a Python object?
+How about encrypting Python objects?
 
 ```python
 # We can use our existing cryptkey
@@ -222,9 +222,9 @@ signature = dcrypt.Signature.from_common(common_signature)
 # Easy peasy!
 ```
 
-If you noticed, we converted the common signature to a json before sending it over the network. You do this using the `json` method of the `CommonSignature` class.
+If you noticed, we converted the common signature to json before sending it over the network. You do this using the `json` method of the `CommonSignature` class.
 
-### Encrypting function outputs
+### Encrypting function output
 
 Say you have a method in a class called `Human` which returns the contact information of the human which will be sent over a network. You may want to encrypt the result of the method before sending it. How do you do this?
 

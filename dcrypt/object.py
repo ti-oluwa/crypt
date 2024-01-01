@@ -102,7 +102,7 @@ class ObjectCrypt(Crypt):
         elif type_ == ":ty-dbl:":
             return float(r)
         elif type_ == ":ty-bln:":
-            return bool(r)
+            return eval(r)
         elif type_ == ":ty-b:":
             return base64.urlsafe_b64decode(r.encode())
         elif type_ == ":ty-obj:":

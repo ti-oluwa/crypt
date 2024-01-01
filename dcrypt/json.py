@@ -13,13 +13,13 @@ class JSONCrypt(ObjectCrypt):
     Encrypts and decrypts objects into JSON parsable objects.
     """
     def encrypt(self, obj: Encryptable) -> JSONParsable:
-        encrypted_obj = super().encrypt(obj)
-        return json.loads(json.dumps(encrypted_obj))
+        return super().encrypt(obj)
+        # return json.loads(json.dumps(encrypted_obj))
   
     
     def decrypt(self, encrypted_obj: JSONParsable) -> Encryptable:
-        decrypted_obj = super().decrypt(encrypted_obj)
-        return json.loads(json.dumps(decrypted_obj))
+        return super().decrypt(encrypted_obj)
+        # return json.loads(json.dumps(decrypted_obj))
 
 
     # Override `encrypt_tuple` and `encrypt_set` methods to return a list. sets and tuples are not JSON parsable
