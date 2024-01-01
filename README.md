@@ -145,9 +145,9 @@ cryptkey = dcrypt.CryptKey(signature=signature)
 
 > Another reason why you may want to save your key signature is to remove the overhead of generating a new cryptkey every time you want to encrypt or decrypt data. Especially when the signature strength is maxed out(3). You can just load the signature from a file and use it to create a new cryptkey.
 
-### Let's talk about the cryptkey signatures
+### Let's talk about cryptkey signatures
 
-The cryptkey signature is a NamedTuple which contains...? You guessed it! A public key, a private key, an encrypted master key and a hash method.
+The cryptkey signature is a NamedTuple which contains...? Right! A public key, a private key, an encrypted master key and a hash method.
 
 The cool thing about cryptkey signatures is that once created, they cannot be modified. So we can access the public key, private key, encrypted master key and hash method without worrying about them being modified.
 
@@ -196,7 +196,7 @@ signature = dcrypt.Signature.from_common(common_signature)
 
 Easy, right? But why do we need to convert a signature to a common signature? Well, we need to do this when we want to save a cryptkey signature to a file. We can't save a `Signature` to a file. We can only save a `CommonSignature` to a file.
 
-For instance, if we need to send a cryptkey signature over a network, we need to convert it to a common signature first and then convert it back to a signature when we receive it.
+Another use case is if we need to send a cryptkey signature over a network, we need to convert it to a common signature first and then convert it back to a signature when we receive it.
 
 ```python
 import dcrypt
@@ -223,6 +223,94 @@ signature = dcrypt.Signature.from_common(common_signature)
 ```
 
 If you noticed, we converted the common signature to a json before sending it over the network. You do this using the `json` method of the `CommonSignature` class.
+
+### Encrypting function outputs
+
+Say you have a method in a class called `Human` which returns the contact information of the human which will be sent over a network. You may want to encrypt the result of the method before sending it. How do you do this?
+
+First let's define our `Human` class:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Human:
+    name: str
+    gender: str
+    email: str
+    phonenumber: str
+    address: str
+    ...
+
+    def get_contact_info(self):
+        return {
+            "email": self.email,
+            "phonenumber": self.phonenumber,
+        }
+```
+
+Now, let's create a cryptkey and an `ObjectCrypt` object:
+
+```python
+import dcrypt
+
+# Create a cryptkey
+cryptkey = dcrypt.CryptKey()
+
+# Create an ObjectCrypt object
+object_crypt = dcrypt.ObjectCrypt(key=cryptkey)
+
+# Let save the cryptkey signature to a file
+cryptkey.signature.dump("./secrets_folder/cryptkey.json")
+```
+
+All that's left is to decorate the `get_contact_info` method with the object crypt we just created:
+
+```python
+
+class Human:
+    ...
+
+    @object_crypt
+    def get_contact_info(self):
+        return {
+            "email": self.email,
+            "phonenumber": self.phonenumber,
+        }
+```
+
+That's it! Now, the result of the `get_contact_info` method will be encrypted before it is returned and yes you can decrypt it with the same object crypt or create a new object crypt with the already saved cryptkey signature.
+
+```python
+tolu = Human(
+    name="Tolu",
+    gender="Male",
+    email="tioluwa.dev@gmail.com",
+    phonenumber="08012345678",
+    address="Lagos, Nigeria."
+)
+
+# Let's get his contact info
+encrypted_contact_info = tolu.get_contact_info()
+
+# The output would be something like:
+# {
+#   "email": "gAAAAABgJ0Z...",
+#   "phonenumber": "gAAAAABgJ0Z...",
+# }
+
+# Now, let's decrypt it
+signature = dcrypt.Signature.load("./secrets_folder/cryptkey.json")
+new_cryptkey = dcrypt.CryptKey(signature=signature)
+new_object_crypt = dcrypt.ObjectCrypt(key=new_cryptkey)
+decrypted_contact_info = new_object_crypt.decrypt(contact_info)
+
+# The output should be:
+# {
+#   "email": "tioluwa.dev@gmail",
+#   "phonenumber": "08012345678",
+# }
+```
 
 You are now ready to use `dcrypt` to encrypt and decrypt your data. Goodluck!
 
