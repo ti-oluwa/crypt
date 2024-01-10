@@ -33,3 +33,6 @@ class TestJSONCrypt(unittest.TestCase):
             self.assertTrue(len(v) > 0)
         self.assertNotEqual(self.crypt.decrypt(cipher), {"a", "b", "c"})
 
+
+if __name__ == "__main__":
+    unittest.main()

@@ -53,3 +53,7 @@ class TestTextCrypt(unittest.TestCase):
         new_crypt = TextCrypt(key=CryptKey())
         with self.assertRaises(DecryptionError):
             new_crypt.decrypt(cipher)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -102,3 +102,7 @@ class TestObjectCrypt(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             _ = self.crypt(1)
+
+
+if __name__ == "__main__":
+    unittest.main()
