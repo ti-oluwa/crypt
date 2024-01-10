@@ -30,3 +30,7 @@ class TestCommonSignature(unittest.TestCase):
         if os.path.exists(f"{self.file_dir}/commonsignature.json"):
 
             os.remove(f"{self.file_dir}/commonsignature.json")
+
+
+if __name__ == "__main__":
+    unittest.main()

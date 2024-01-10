@@ -31,3 +31,7 @@ class TestCryptKey(unittest.TestCase):
             CryptKey.make_signature(hash_algorithm="SHA-1")
         with self.assertRaises(TypeError):
             CryptKey.make_signature(signature_strength="")
+
+
+if __name__ == "__main__":
+    unittest.main()

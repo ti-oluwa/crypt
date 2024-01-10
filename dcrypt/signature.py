@@ -1,6 +1,6 @@
 import rsa
 import base64
-from typing import NamedTuple, Self, Dict, Any
+from typing import NamedTuple, Dict, Any
 import simple_file_handler as sfh
 
 
@@ -86,7 +86,7 @@ class CommonSignature(NamedTuple):
 
 
     @classmethod
-    def load(cls, path: str) -> Self:
+    def load(cls, path: str):
         """
         Loads a signature from a JSON file.
 
@@ -127,7 +127,7 @@ class Signature(NamedTuple):
     
 
     @classmethod
-    def from_common(cls, common_signature: CommonSignature, encoding: str = "utf-8") -> Self:
+    def from_common(cls, common_signature: CommonSignature, encoding: str = "utf-8"):
         """
         Construct a signature from its common signature
 
@@ -154,7 +154,7 @@ class Signature(NamedTuple):
 
 
     @classmethod
-    def load(cls, path: str, encoding: str = "utf-8") -> Self:
+    def load(cls, path: str, encoding: str = "utf-8"):
         """
         Loads a signature from a JSON file.
 

@@ -29,3 +29,8 @@ class TestSignature(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(f"{self.file_dir}/signature.json"):
             os.remove(f"{self.file_dir}/signature.json")
+
+
+if __name__ == "__main__":
+    unittest.main()
+    
