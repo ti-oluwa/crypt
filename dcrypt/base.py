@@ -1,31 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar
 
-from .exceptions import InvalidCryptKey
-from .cryptkey import CryptKey, _AllowSetOnce
+from .cryptkey import CryptKey, _SetOnceDescriptor, validate_cryptkey
 
 
 Encryptable = TypeVar("Encryptable", str, int, float, bool, bytes, list, tuple, set, dict, None)
 Decryptable = TypeVar("Decryptable", str, list, tuple, set, dict, None)
 
-
-def validate_cryptkey(key: CryptKey) -> None:
-    """
-    Checks if a key is valid
-
-    :param key: key to be checked
-    :raises `InvalidCryptKey`: if the key is invalid
-    """
-    if not isinstance(key, CryptKey):
-        raise TypeError('key must be of type CryptKey')
-    if not key.is_valid:
-        raise InvalidCryptKey('Crypt key provided is not valid. Its signature may have been tampered with.')
-
-
 class Crypt(ABC):
     """Abstract base class for `*Crypt` type"""
-
-    key = _AllowSetOnce(CryptKey, validators=[validate_cryptkey])
+    key = _SetOnceDescriptor(CryptKey, validators=[validate_cryptkey])
 
     def __init__(self, key: CryptKey) -> None:
         """
@@ -49,7 +33,10 @@ class Crypt(ABC):
     @abstractmethod
     def encrypt(self, obj: Encryptable, *args, **kwargs) -> Decryptable:
         """Encrypts the object passed"""
+        pass
+
 
     @abstractmethod
     def decrypt(self, encrypted_obj: Decryptable, *args, **kwargs) -> Encryptable:
         """Decrypts the encrypted object passed"""
+        pass

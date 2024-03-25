@@ -1,18 +1,21 @@
+from __future__ import annotations
 import inspect
 import rsa
 from cryptography.fernet import Fernet
-from typing import Callable, List
+from typing import Callable, List, Optional, TypeVar
 
 from .exceptions import SignatureError
 from .signature import Signature, SUPPORTED_HASH_ALGORITHMS, SIGNATURE_STRENGTH_LEVELS
+from .exceptions import InvalidCryptKey
 
 
+T = TypeVar("T")
 
-class _AllowSetOnce:
+class _SetOnceDescriptor[T]:
     """
     Descriptor that allows an attribute to be set only once on an instance.
     """
-    def __init__(self, attr_type: type[object] = None, validators: List[Callable] = None) -> None:
+    def __init__(self, attr_type: Optional[type[T]] = None, validators: List[Callable] = None) -> None:
         """
         Initialize the descriptor
 
@@ -38,7 +41,7 @@ class _AllowSetOnce:
         self.name = name
 
 
-    def __get__(self, instance: object, owner: object):
+    def __get__(self, instance: object, owner: object) -> T:
         """
         Get the property value
 
@@ -48,7 +51,7 @@ class _AllowSetOnce:
         """
         if instance is None:
             return self
-        value: self.attr_type = instance.__dict__[self.name]
+        value = instance.__dict__[self.name]
         return value
 
 
@@ -72,14 +75,14 @@ class _AllowSetOnce:
 
 class CryptKey:
     """Encryption key for `*Crypt` classes"""
-    signature = _AllowSetOnce(Signature)
+    signature = _SetOnceDescriptor(Signature)
 
     def __init__(
-            self, 
-            signature: Signature = None, 
-            signature_strength: int = 1,
-            hash_algorithm: str = "SHA-256"
-        ):
+        self, 
+        signature: Optional[Signature] = None, 
+        signature_strength: int = 1,
+        hash_algorithm: str = "SHA-256"
+    ) -> None:
         """
         Make a `CryptKey` object
 
@@ -92,14 +95,8 @@ class CryptKey:
         the longer it takes to generate the key signature but the more secure it is.
         This is only used when `signature` is not passed to the constructor, that is, you want to create
         an entirely new crypt key.
-        """
-        if signature is not None and not isinstance(signature, Signature):
-            raise TypeError('signature must be a Signature object')
-        
-        self.signature = signature or self.make_signature(
-            signature_strength=signature_strength, 
-            hash_algorithm=hash_algorithm
-        )
+        """        
+        self.signature = signature or self.make_signature(signature_strength, hash_algorithm)
 
 
     def __eq__(self, o: object) -> bool:
@@ -115,11 +112,11 @@ class CryptKey:
 
         The master key is the fernet key used to encrypt and decrypt data.
         """
-        enc_master, pub, priv, hsh_mthd = self.signature
-        return self._decrypt_master_key(enc_master, priv, pub, hsh_mthd)
+        enc_master, pub_key, priv_key, hash_method = self.signature
+        return self._decrypt_master_key(enc_master, priv_key, pub_key, hash_method)
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         """
         Checks if the cryptkey is valid
         """
@@ -132,11 +129,11 @@ class CryptKey:
 
     @classmethod
     def _sign_master_key(
-            cls, 
-            master_key: bytes, 
-            priv_key: rsa.PrivateKey,
-            hash_algorithm: str,
-        ) -> bytes:
+        cls, 
+        master_key: bytes, 
+        priv_key: rsa.PrivateKey,
+        hash_algorithm: str,
+    ) -> bytes:
         """
         Signs the master key using the rsa private key
 
@@ -150,12 +147,12 @@ class CryptKey:
 
     @classmethod
     def _verify_master_key(
-            cls, 
-            master_key: bytes, 
-            key_signature: bytes, 
-            pub_key: rsa.PublicKey,
-            hash_algorithm: str
-        ) -> bool:
+        cls, 
+        master_key: bytes, 
+        key_signature: bytes, 
+        pub_key: rsa.PublicKey,
+        hash_algorithm: str
+    ) -> bool:
         """
         Verifies a decrypted master key using the public key
 
@@ -172,12 +169,12 @@ class CryptKey:
 
     @classmethod
     def _encrypt_master_key(
-            cls, 
-            master_key: bytes, 
-            pub_key: rsa.PublicKey, 
-            priv_key: rsa.PrivateKey = None,
-            hash_algorithm: str = None
-        ):
+        cls, 
+        master_key: bytes, 
+        pub_key: rsa.PublicKey, 
+        priv_key: Optional[rsa.PrivateKey] = None,
+        hash_algorithm: Optional[str] = None
+    ) -> bytes:
         enc_master_key = rsa.encrypt(master_key, pub_key)
         if priv_key and hash_algorithm:
             key_signature = cls._sign_master_key(master_key, priv_key, hash_algorithm)
@@ -187,12 +184,12 @@ class CryptKey:
 
     @classmethod
     def _decrypt_master_key(
-            cls, 
-            enc_master_key: bytes, 
-            priv_key: rsa.PrivateKey, 
-            pub_key: rsa.PublicKey = None,
-            hash_algorithm: str = None
-        ):
+        cls, 
+        enc_master_key: bytes, 
+        priv_key: rsa.PrivateKey, 
+        pub_key: Optional[rsa.PublicKey] = None,
+        hash_algorithm: Optional[str] = None
+    ) -> bytes:
         if hash_algorithm:
             enc_master_key, signature = enc_master_key.split(br'\u0000')
 
@@ -230,3 +227,18 @@ class CryptKey:
         master_key = Fernet.generate_key()
         enc_master_key = cls._encrypt_master_key(master_key, pub_key, priv_key, hash_algorithm)
         return Signature(enc_master_key, pub_key, priv_key, hash_algorithm)
+
+
+
+def validate_cryptkey(key: CryptKey) -> None:
+    """
+    Checks if a key is valid
+
+    :param key: key to be checked
+    :raises `InvalidCryptKey`: if the key is invalid
+    """
+    if not isinstance(key, CryptKey):
+        raise TypeError('key must be of type CryptKey')
+    if not key.is_valid:
+        raise InvalidCryptKey('Crypt key provided is not valid. Its signature may have been tampered with.')
+
