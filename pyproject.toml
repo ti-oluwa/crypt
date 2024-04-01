@@ -48,8 +48,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-  "cryptography==41.0.4",
-  "rsa==4.9",
+  "cryptography>=41.0.4",
+  "rsa>=4.9",
   "simple_file_handler>=0.0.1",
 ]
 
