@@ -2,7 +2,7 @@ from __future__ import annotations
 import inspect
 import rsa
 from cryptography.fernet import Fernet
-from typing import Callable, List, Optional, TypeVar
+from typing import Callable, List, Optional, TypeVar, Generic
 
 from .exceptions import SignatureError
 from .signature import Signature, SUPPORTED_HASH_ALGORITHMS, SIGNATURE_STRENGTH_LEVELS
@@ -11,11 +11,11 @@ from .exceptions import InvalidCryptKey
 
 T = TypeVar("T")
 
-class _SetOnceDescriptor[T]:
+class _SetOnceDescriptor(Generic[T]):
     """
     Descriptor that allows an attribute to be set only once on an instance.
     """
-    def __init__(self, attr_type: Optional[type[T]] = None, validators: List[Callable] = None) -> None:
+    def __init__(self, attr_type: Optional[type[T]] = None, validators: List[Callable[..., None]] = None) -> None:
         """
         Initialize the descriptor
 
@@ -35,7 +35,7 @@ class _SetOnceDescriptor[T]:
         return None
             
     
-    def __set_name__(self, owner, name: str):
+    def __set_name__(self, owner, name: str) -> None:
         if not isinstance(name, str):
             raise TypeError('name must be a string')
         self.name = name
@@ -55,7 +55,7 @@ class _SetOnceDescriptor[T]:
         return value
 
 
-    def __set__(self, instance: object, value: object) -> None:
+    def __set__(self, instance: object, value: T) -> None:
         """
         Set the attribute value on the instance
 
@@ -70,6 +70,17 @@ class _SetOnceDescriptor[T]:
         for validator in self.validators:
             validator(value)
         instance.__dict__[self.name] = value
+
+    
+    def __delete__(self, instance: object) -> None:
+        """
+        Delete the attribute value on the instance
+
+        :param instance: instance of the class
+        """
+        if self.name in instance.__dict__:
+            del instance.__dict__[self.name]
+        return None
 
 
 
@@ -240,5 +251,7 @@ def validate_cryptkey(key: CryptKey) -> None:
     if not isinstance(key, CryptKey):
         raise TypeError('key must be of type CryptKey')
     if not key.is_valid:
-        raise InvalidCryptKey('Crypt key provided is not valid. Its signature may have been tampered with.')
-
+        raise InvalidCryptKey(
+            'Crypt key provided is not valid. Its signature may have been tampered with.'
+        )
+    return None

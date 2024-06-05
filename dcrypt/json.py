@@ -13,12 +13,10 @@ class JSONCrypt(ObjectCrypt):
     """
     def encrypt(self, obj: Encryptable) -> JSONParsable:
         return super().encrypt(obj)
-        # return json.loads(json.dumps(encrypted_obj))
   
     
     def decrypt(self, encrypted_obj: JSONParsable) -> Encryptable:
         return super().decrypt(encrypted_obj)
-        # return json.loads(json.dumps(decrypted_obj))
 
 
     # Override `encrypt_tuple` and `encrypt_set` methods to return a list. sets and tuples are not JSON parsable
