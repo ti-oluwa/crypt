@@ -14,7 +14,7 @@ class TextCrypt(Crypt):
 
         :param string: string to be encrypted
         :param encoding: encoding to be used to decode and 
-        encode the string on encryption. Default to 'utf-8'
+        encode the string on encryption. Defaults to 'utf-8'
         :return: encrypted string
         """
         if not isinstance(string, str):
@@ -35,7 +35,7 @@ class TextCrypt(Crypt):
 
         :param cipher_string: string to be decrypted
         :param encoding: encoding to be used to decode and 
-        encode the string on decryption. Default to 'utf-8'
+        encode the string on decryption. Defaults to 'utf-8'
         :return: decrypted string
         """
         if not isinstance(cipher_string, str):
