@@ -28,7 +28,7 @@ class TestCryptKey(unittest.TestCase):
         with self.assertRaises(ValueError):
             CryptKey.make_signature(signature_strength=4)
         with self.assertRaises(ValueError):
-            CryptKey.make_signature(hash_algorithm="SHA-1")
+            CryptKey.make_signature(hash_algorithm="SHA-6")
         with self.assertRaises(TypeError):
             CryptKey.make_signature(signature_strength="")
 

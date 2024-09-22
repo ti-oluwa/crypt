@@ -20,18 +20,6 @@ keywords = [
   "decryption",
   "rsa",
   "fernet",
-  "encrypt",
-  "decrypt",
-  "encryptor",
-  "decryptor",
-  "encrypter",
-  "decrypter",
-  "encrypting",
-  "decrypting",
-  "encryptors",
-  "decryptors",
-  "encrypters",
-  "decrypters",
   "cryptography",
 ]
 readme = "README.md"

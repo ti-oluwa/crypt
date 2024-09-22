@@ -1,6 +1,7 @@
 import rsa
 import base64
-from typing import NamedTuple, Dict, Any
+from typing import NamedTuple, Dict, Any, Union
+import rsa.pkcs1
 import simple_file_handler as sfh
 
 
@@ -10,7 +11,7 @@ SIGNATURE_STRENGTH_LEVELS = [
     (3, 3072)
 ]
 
-SUPPORTED_HASH_ALGORITHMS = ('SHA-256', 'SHA-384', 'SHA-512')
+SUPPORTED_HASH_ALGORITHMS = list(rsa.pkcs1.HASH_METHODS.keys())
 
 
 def _bytes_to_str(b: bytes, encoding: str = 'utf-8') -> str:
@@ -35,7 +36,7 @@ def _str_to_bytes(s: str, encoding: str = 'utf-8') -> bytes:
     return base64.urlsafe_b64decode(s.encode(encoding=encoding))
 
 
-def _rsa_key_to_str(rsa_key: rsa.PublicKey | rsa.PrivateKey, encoding: str = 'utf-8') -> str:
+def _rsa_key_to_str(rsa_key: Union[rsa.PublicKey, rsa.PrivateKey], encoding: str = 'utf-8') -> str:
     """Converts an rsa key to a string"""
     rsa_key_str = _bytes_to_str(rsa_key.save_pkcs1(format="PEM"), encoding=encoding)
     return rsa_key_str

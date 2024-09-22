@@ -2,7 +2,7 @@ from __future__ import annotations
 import inspect
 import rsa
 from cryptography.fernet import Fernet
-from typing import Callable, List, Optional, TypeVar, Generic
+from typing import Callable, List, Optional, TypeVar, Generic, Type
 
 from .exceptions import SignatureError
 from .signature import Signature, SUPPORTED_HASH_ALGORITHMS, SIGNATURE_STRENGTH_LEVELS
@@ -15,7 +15,7 @@ class _SetOnceDescriptor(Generic[T]):
     """
     Descriptor that allows an attribute to be set only once on an instance.
     """
-    def __init__(self, attr_type: Optional[type[T]] = None, validators: List[Callable[..., None]] = None) -> None:
+    def __init__(self, attr_type: Optional[Type[T]] = None, validators: List[Callable[..., None]] = None) -> None:
         """
         Initialize the descriptor
 

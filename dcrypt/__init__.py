@@ -14,7 +14,7 @@ from .json import JSONCrypt
 from .exceptions import EncryptionError, DecryptionError
 
 
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 __all__ = [
     'Signature', 'CommonSignature', 
     'CryptKey', 'TextCrypt', 'ObjectCrypt', 
