@@ -162,7 +162,7 @@ class ObjectCrypt(Crypt):
         return f":ty-b:\u0000{enc_bytes_str}"
 
 
-    def encrypt_tuple(self, tuple_: tuple) -> Tuple:
+    def encrypt_tuple(self, tuple_: Tuple) -> Tuple:
         """
         Encrypts a tuple content
 
@@ -174,7 +174,7 @@ class ObjectCrypt(Crypt):
         return tuple(self.encrypt_list(list(tuple_)))
     
 
-    def decrypt_tuple(self, cipher_tuple: tuple) -> Tuple:
+    def decrypt_tuple(self, cipher_tuple: Tuple) -> Tuple:
         """
         Decrypts a tuple of encrypted content
 
@@ -186,7 +186,7 @@ class ObjectCrypt(Crypt):
         return tuple(self.decrypt_list(list(cipher_tuple)))
 
 
-    def encrypt_set(self, set_: set) -> Set:
+    def encrypt_set(self, set_: Set) -> Set:
         """
         Encrypts a set content
 
@@ -198,7 +198,7 @@ class ObjectCrypt(Crypt):
         return set(self.encrypt_list(list(set_)))
     
 
-    def decrypt_set(self, cipher_set: set) -> Set:
+    def decrypt_set(self, cipher_set: Set) -> Set:
         """
         Decrypts a set of encrypted content
 
